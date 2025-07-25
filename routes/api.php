@@ -7,6 +7,16 @@ use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\UserController;
 use App\Http\Controllers\Api\RoleController;
 
+// Ruta de prueba simple
+Route::get('/test', function () {
+    return response()->json([
+        'message' => '¡La API está funcionando correctamente!',
+        'timestamp' => now(),
+        'server' => 'Matamares API',
+        'laravel_version' => app()->version()
+    ]);
+});
+
 // Ruta para verificar el estado de CSRF
 Route::get('/csrf-status', function () {
     return response()->json([
