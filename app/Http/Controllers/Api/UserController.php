@@ -7,116 +7,193 @@ use App\Models\User;
 use App\Models\Role;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Facades\Auth;
+use Illuminate\Validation\Rule;
 
 class UserController extends Controller
 {
     /**
-     * Lista todos los usuarios (solo admin)
+     * Display a listing of users (admin only).
      */
-    public function index()
+    public function index(Request $request)
     {
-        $users = User::with('roles')->paginate(15);
-        
+        $query = User::with('roles');
+
+        // Search functionality
+        if ($request->has('search')) {
+            $search = $request->search;
+            $query->where(function ($q) use ($search) {
+                $q->where('name', 'LIKE', "%{$search}%")
+                  ->orWhere('email', 'LIKE', "%{$search}%");
+            });
+        }
+
+        // Role filter
+        if ($request->has('role')) {
+            $query->whereHas('roles', function ($q) use ($request) {
+                $q->where('name', $request->role);
+            });
+        }
+
+        // Status filter
+        if ($request->has('active')) {
+            $query->where('active', $request->boolean('active'));
+        }
+
+        // Pagination
+        $page = $request->get('page', 1);
+        $limit = $request->get('limit', 20);
+
+        $users = $query->orderBy('name')
+                      ->paginate($limit, ['*'], 'page', $page);
+
+        $formattedUsers = $users->getCollection()->map(function ($user) {
+            return [
+                'id' => $user->id,
+                'name' => $user->name,
+                'email' => $user->email,
+                'active' => $user->active,
+                'role' => $user->roles->first()?->name ?? 'sin_rol',
+                'createdAt' => $user->created_at->toISOString(),
+                'updatedAt' => $user->updated_at->toISOString(),
+            ];
+        });
+
         return response()->json([
-            'users' => $users->items(),
+            'users' => $formattedUsers,
             'pagination' => [
-                'current_page' => $users->currentPage(),
-                'last_page' => $users->lastPage(),
-                'per_page' => $users->perPage(),
+                'page' => $users->currentPage(),
+                'limit' => $users->perPage(),
                 'total' => $users->total(),
+                'pages' => $users->lastPage(),
             ]
         ]);
     }
 
     /**
-     * Crear un nuevo usuario (solo admin)
+     * Store a newly created user.
      */
     public function store(Request $request)
     {
         $request->validate([
             'name' => 'required|string|max:255',
             'email' => 'required|string|email|max:255|unique:users',
-            'password' => 'required|string|min:8',
-            'roles' => 'array',
-            'roles.*' => 'exists:roles,name',
+            'password' => 'required|string|min:6',
+            'role' => 'required|string|exists:roles,name',
         ]);
 
         $user = User::create([
             'name' => $request->name,
             'email' => $request->email,
             'password' => Hash::make($request->password),
+            'active' => true,
         ]);
 
-        // Asignar roles si se proporcionan
-        if ($request->has('roles')) {
-            foreach ($request->roles as $roleName) {
-                $user->assignRole($roleName, Auth::id());
+        // Assign role
+        $role = Role::where('name', $request->role)->first();
+        if ($role) {
+            $user->roles()->attach($role->id);
+        }
+
+        $user->load('roles');
+
+        return response()->json([
+            'user' => [
+                'id' => $user->id,
+                'name' => $user->name,
+                'email' => $user->email,
+                'active' => $user->active,
+                'role' => $user->roles->first()?->name ?? 'sin_rol',
+                'createdAt' => $user->created_at->toISOString(),
+                'updatedAt' => $user->updated_at->toISOString(),
+            ],
+            'message' => 'Usuario creado exitosamente'
+        ], 201);
+    }
+
+    /**
+     * Display the specified user.
+     */
+    public function show(User $user)
+    {
+        $user->load('roles');
+
+        return response()->json([
+            'user' => [
+                'id' => $user->id,
+                'name' => $user->name,
+                'email' => $user->email,
+                'active' => $user->active,
+                'role' => $user->roles->first()?->name ?? 'sin_rol',
+                'createdAt' => $user->created_at->toISOString(),
+                'updatedAt' => $user->updated_at->toISOString(),
+            ]
+        ]);
+    }
+
+    /**
+     * Update the specified user.
+     */
+    public function update(Request $request, User $user)
+    {
+        $request->validate([
+            'name' => 'sometimes|required|string|max:255',
+            'email' => [
+                'sometimes',
+                'required',
+                'string',
+                'email',
+                'max:255',
+                Rule::unique('users')->ignore($user->id),
+            ],
+            'password' => 'nullable|string|min:6',
+            'role' => 'sometimes|required|string|exists:roles,name',
+        ]);
+
+        $updateData = $request->only(['name', 'email']);
+        
+        if ($request->filled('password')) {
+            $updateData['password'] = Hash::make($request->password);
+        }
+
+        $user->update($updateData);
+
+        // Update role if provided
+        if ($request->has('role')) {
+            $role = Role::where('name', $request->role)->first();
+            if ($role) {
+                $user->roles()->sync([$role->id]);
             }
         }
 
         $user->load('roles');
 
         return response()->json([
-            'message' => 'Usuario creado exitosamente',
-            'user' => $user
-        ], 201);
-    }
-
-    /**
-     * Mostrar un usuario específico
-     */
-    public function show(User $user)
-    {
-        $user->load('roles');
-        return response()->json($user);
-    }
-
-    /**
-     * Actualizar un usuario (solo admin)
-     */
-    public function update(Request $request, User $user)
-    {
-        $request->validate([
-            'name' => 'sometimes|string|max:255',
-            'email' => 'sometimes|string|email|max:255|unique:users,email,' . $user->id,
-            'password' => 'sometimes|string|min:8',
-        ]);
-
-        if ($request->has('name')) {
-            $user->name = $request->name;
-        }
-
-        if ($request->has('email')) {
-            $user->email = $request->email;
-        }
-
-        if ($request->has('password')) {
-            $user->password = Hash::make($request->password);
-        }
-
-        $user->save();
-        $user->load('roles');
-
-        return response()->json([
-            'message' => 'Usuario actualizado exitosamente',
-            'user' => $user
+            'user' => [
+                'id' => $user->id,
+                'name' => $user->name,
+                'email' => $user->email,
+                'active' => $user->active,
+                'role' => $user->roles->first()?->name ?? 'sin_rol',
+                'createdAt' => $user->created_at->toISOString(),
+                'updatedAt' => $user->updated_at->toISOString(),
+            ],
+            'message' => 'Usuario actualizado exitosamente'
         ]);
     }
 
     /**
-     * Eliminar un usuario (solo admin)
+     * Remove (deactivate) the specified user.
      */
     public function destroy(User $user)
     {
-        // Prevenir que el admin se elimine a sí mismo
-        if ($user->id === Auth::id()) {
+        // Don't allow deleting the current user
+        if ($user->id === auth('sanctum')->id()) {
             return response()->json([
-                'message' => 'No puedes eliminar tu propia cuenta'
-            ], 400);
+                'message' => 'No puedes eliminar tu propio usuario'
+            ], 422);
         }
 
-        $user->delete();
+        $user->update(['active' => false]);
 
         return response()->json([
             'message' => 'Usuario eliminado exitosamente'
@@ -124,63 +201,30 @@ class UserController extends Controller
     }
 
     /**
-     * Asignar rol a un usuario (solo admin)
+     * Toggle user status.
      */
-    public function assignRole(Request $request, User $user)
+    public function toggleStatus(User $user)
     {
-        $request->validate([
-            'role' => 'required|exists:roles,name',
-        ]);
-
-        if ($user->hasRole($request->role)) {
+        // Don't allow deactivating the current user
+        if ($user->id === auth('sanctum')->id() && $user->active) {
             return response()->json([
-                'message' => 'El usuario ya tiene este rol'
-            ], 400);
+                'message' => 'No puedes desactivar tu propio usuario'
+            ], 422);
         }
 
-        $user->assignRole($request->role, Auth::id());
-        $user->load('roles');
+        $user->update(['active' => !$user->active]);
 
         return response()->json([
-            'message' => 'Rol asignado exitosamente',
-            'user' => $user
-        ]);
-    }
-
-    /**
-     * Remover rol de un usuario (solo admin)
-     */
-    public function removeRole(Request $request, User $user)
-    {
-        $request->validate([
-            'role' => 'required|exists:roles,name',
-        ]);
-
-        if (!$user->hasRole($request->role)) {
-            return response()->json([
-                'message' => 'El usuario no tiene este rol'
-            ], 400);
-        }
-
-        // Prevenir que se remueva el rol de admin del último administrador
-        if ($request->role === 'admin') {
-            $adminCount = User::whereHas('roles', function($query) {
-                $query->where('name', 'admin');
-            })->count();
-
-            if ($adminCount <= 1) {
-                return response()->json([
-                    'message' => 'No se puede remover el rol de admin del último administrador'
-                ], 400);
-            }
-        }
-
-        $user->removeRole($request->role);
-        $user->load('roles');
-
-        return response()->json([
-            'message' => 'Rol removido exitosamente',
-            'user' => $user
+            'user' => [
+                'id' => $user->id,
+                'name' => $user->name,
+                'email' => $user->email,
+                'active' => $user->active,
+                'role' => $user->roles->first()?->name ?? 'sin_rol',
+                'createdAt' => $user->created_at->toISOString(),
+                'updatedAt' => $user->updated_at->toISOString(),
+            ],
+            'message' => $user->active ? 'Usuario activado exitosamente' : 'Usuario desactivado exitosamente'
         ]);
     }
 }

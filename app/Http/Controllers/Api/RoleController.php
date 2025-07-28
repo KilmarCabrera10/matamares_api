@@ -13,9 +13,28 @@ class RoleController extends Controller
      */
     public function index()
     {
-        $roles = Role::active()->with('users')->get();
+        // Return predefined roles for the POS system
+        $roles = [
+            [
+                'id' => 'administrador',
+                'name' => 'Administrador',
+                'description' => 'Acceso completo al sistema'
+            ],
+            [
+                'id' => 'gerente',
+                'name' => 'Gerente',
+                'description' => 'Gestión de productos, ventas y reportes'
+            ],
+            [
+                'id' => 'cajero',
+                'name' => 'Cajero',
+                'description' => 'Procesamiento de ventas y consulta de productos'
+            ]
+        ];
         
-        return response()->json($roles);
+        return response()->json([
+            'roles' => $roles
+        ]);
     }
 
     /**

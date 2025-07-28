@@ -49,17 +49,30 @@ class AuthController extends Controller
         $user = User::where('email', $request->email)->first();
 
         if (! $user || ! Hash::check($request->password, $user->password)) {
-            throw ValidationException::withMessages([
-                'email' => ['Las credenciales proporcionadas son incorrectas.'],
-            ]);
+            return response()->json([
+                'error' => 'Credenciales inválidas'
+            ], 401);
+        }
+
+        if (!$user->active) {
+            return response()->json([
+                'error' => 'Usuario desactivado'
+            ], 401);
         }
 
         $token = $user->createToken('api-token')->plainTextToken;
+        
+        // Get user's primary role
+        $role = $user->roles->first();
 
         return response()->json([
-            'user' => $user,
+            'user' => [
+                'id' => $user->id,
+                'name' => $user->name,
+                'email' => $user->email,
+                'role' => $role ? $role->name : null,
+            ],
             'token' => $token,
-            'token_type' => 'Bearer',
         ]);
     }
 

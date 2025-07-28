@@ -14,21 +14,21 @@ class RoleSeeder extends Seeder
     {
         $roles = [
             [
-                'name' => 'admin',
+                'name' => 'administrador',
                 'display_name' => 'Administrador',
                 'description' => 'Acceso completo al sistema',
                 'is_active' => true,
             ],
             [
-                'name' => 'user',
-                'display_name' => 'Usuario',
-                'description' => 'Usuario estándar del sistema',
+                'name' => 'gerente',
+                'display_name' => 'Gerente',
+                'description' => 'Gestión de productos, ventas y reportes',
                 'is_active' => true,
             ],
             [
-                'name' => 'moderator',
-                'display_name' => 'Moderador',
-                'description' => 'Acceso limitado de moderación',
+                'name' => 'cajero',
+                'display_name' => 'Cajero',
+                'description' => 'Procesamiento de ventas y consulta de productos',
                 'is_active' => true,
             ],
         ];
