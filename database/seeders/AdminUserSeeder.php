@@ -22,16 +22,13 @@ class AdminUserSeeder extends Seeder
                 'email' => 'admin@matamares.com',
                 'password' => Hash::make('Admin123!'),
                 'email_verified_at' => now(),
+                'active' => true,
             ]
         );
 
         // Asignar rol de administrador
-        $adminRole = Role::where('name', 'admin')->first();
-        if ($adminRole && !$admin->hasRole('admin')) {
-            $admin->roles()->attach($adminRole->id, [
-                'assigned_at' => now(),
-                'assigned_by' => null, // Auto-asignado
-            ]);
+        if (!$admin->hasRole('administrador')) {
+            $admin->assignRole('administrador');
         }
 
         // Mostrar credenciales en la consola

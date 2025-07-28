@@ -6,6 +6,9 @@ use App\Http\Controllers\Api\ProductController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\UserController;
 use App\Http\Controllers\Api\RoleController;
+use App\Http\Controllers\Api\CustomerController;
+use App\Http\Controllers\Api\SaleController;
+use App\Http\Controllers\Api\ReportController;
 
 // Ruta de prueba simple
 Route::get('/test', function () {
@@ -26,35 +29,50 @@ Route::get('/csrf-status', function () {
     ]);
 });
 
-// Rutas públicas de autenticación (funcionan con y sin CSRF)
-Route::post('/register', [AuthController::class, 'register']);
-Route::post('/login', [AuthController::class, 'login']);
+// === AUTHENTICATION ROUTES ===
+Route::prefix('auth')->group(function () {
+    Route::post('/login', [AuthController::class, 'login']);
+    Route::post('/logout', [AuthController::class, 'logout'])->middleware('auth:sanctum');
+});
 
-// Rutas públicas para productos (sin autenticación)
-Route::get('/products', [ProductController::class, 'index']);
-
-// Rutas protegidas con Sanctum
+// === PROTECTED ROUTES ===
 Route::middleware('auth:sanctum')->group(function () {
+    
+    // User info
     Route::get('/user', [AuthController::class, 'user']);
-    Route::post('/logout', [AuthController::class, 'logout']);
     
-    // Rutas para productos (protegidas)
-    Route::apiResource('products', ProductController::class)->except(['index']);
+    // === PRODUCTS ===  
+    Route::apiResource('products', ProductController::class);
     
-    // Rutas para roles (acceso básico para ver roles)
+    // === CUSTOMERS ===
+    Route::apiResource('customers', CustomerController::class);
+    
+    // === SALES ===
+    Route::apiResource('sales', SaleController::class)->except(['update', 'destroy']);
+    Route::get('/sales/today-stats', [SaleController::class, 'todayStats']);
+    
+    // === ROLES === (Basic access for all authenticated users)
     Route::get('/roles', [RoleController::class, 'index']);
     Route::get('/roles/{role}', [RoleController::class, 'show']);
     
-    // Rutas solo para administradores
-    Route::middleware('role:admin')->group(function () {
-        // Gestión de usuarios
-        Route::apiResource('users', UserController::class);
-        Route::post('/users/{user}/assign-role', [UserController::class, 'assignRole']);
-        Route::post('/users/{user}/remove-role', [UserController::class, 'removeRole']);
+    // === REPORTS === (Manager and Admin access - add middleware later)
+    Route::prefix('reports')->group(function () {
+        Route::get('/sales', [ReportController::class, 'sales']);
+        Route::get('/products', [ReportController::class, 'products']);
+        Route::get('/users', [ReportController::class, 'users']);
+    });
+    
+    // === ADMIN ONLY ROUTES ===
+    Route::middleware('role:administrador')->prefix('admin')->group(function () {
         
-        // Gestión de roles
+        // User management
+        Route::apiResource('users', UserController::class);
+        Route::put('/users/{user}/toggle-status', [UserController::class, 'toggleStatus']);
+        
+        // Role management
         Route::post('/roles', [RoleController::class, 'store']);
         Route::put('/roles/{role}', [RoleController::class, 'update']);
         Route::delete('/roles/{role}', [RoleController::class, 'destroy']);
+        
     });
 });
