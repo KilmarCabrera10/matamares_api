@@ -19,6 +19,7 @@ return Application::configure(basePath: dirname(__DIR__))
 
         $middleware->alias([
             'role' => \App\Http\Middleware\CheckRole::class,
+            'multitenant' => \App\Projects\Inventario\Middleware\MultitenantAuth::class,
         ]);
         
         // Opcional: Excluir CSRF de ciertas rutas API si es necesario

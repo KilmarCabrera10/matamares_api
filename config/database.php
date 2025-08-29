@@ -16,7 +16,7 @@ return [
     |
     */
 
-    'default' => env('DB_CONNECTION', 'sqlite'),
+    'default' => env('DB_CONNECTION', 'matamares'),
 
     /*
     |--------------------------------------------------------------------------
@@ -42,6 +42,39 @@ return [
             'synchronous' => null,
         ],
 
+        // Conexión para proyecto Matamares
+        'matamares' => [
+            'driver' => 'pgsql',
+            'url' => env('MATAMARES_DB_URL'),
+            'host' => env('MATAMARES_DB_HOST', '127.0.0.1'),
+            'port' => env('MATAMARES_DB_PORT', '5432'),
+            'database' => env('MATAMARES_DB_DATABASE', 'matamares_db'),
+            'username' => env('MATAMARES_DB_USERNAME', 'postgres'),
+            'password' => env('MATAMARES_DB_PASSWORD', ''),
+            'charset' => env('MATAMARES_DB_CHARSET', 'utf8'),
+            'prefix' => '',
+            'prefix_indexes' => true,
+            'search_path' => 'public',
+            'sslmode' => 'prefer',
+        ],
+
+        // Conexión para proyecto Inventario
+        'inventario' => [
+            'driver' => 'pgsql',
+            'url' => env('INVENTARIO_DB_URL'),
+            'host' => env('INVENTARIO_DB_HOST', '127.0.0.1'),
+            'port' => env('INVENTARIO_DB_PORT', '5432'),
+            'database' => env('INVENTARIO_DB_DATABASE', 'inventario_db'),
+            'username' => env('INVENTARIO_DB_USERNAME', 'postgres'),
+            'password' => env('INVENTARIO_DB_PASSWORD', ''),
+            'charset' => env('INVENTARIO_DB_CHARSET', 'utf8'),
+            'prefix' => '',
+            'prefix_indexes' => true,
+            'search_path' => 'public',
+            'sslmode' => 'prefer',
+        ],
+
+        // Conexión genérica MySQL para nuevos proyectos
         'mysql' => [
             'driver' => 'mysql',
             'url' => env('DB_URL'),
