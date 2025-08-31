@@ -5,6 +5,7 @@ use App\Projects\Inventario\Controllers\OrganizationController;
 use App\Projects\Inventario\Controllers\ProductController;
 use App\Projects\Inventario\Controllers\LocationController;
 use App\Projects\Inventario\Controllers\InventoryController;
+use App\Projects\Inventario\Controllers\AuthController;
 
 /*
 |--------------------------------------------------------------------------
@@ -22,8 +23,21 @@ Route::prefix('inventario')->group(function () {
         return response()->json(['status' => 'ok', 'service' => 'inventario']);
     });
 
+    // Rutas de autenticación (públicas)
+    Route::prefix('auth')->group(function () {
+        Route::post('/login', [AuthController::class, 'login']);
+        Route::post('/register', [AuthController::class, 'register']);
+    });
+
     // Rutas protegidas con autenticación Sanctum
     Route::middleware(['auth:sanctum'])->group(function () {
+        
+        // Rutas de autenticación protegidas
+        Route::prefix('auth')->group(function () {
+            Route::post('/logout', [AuthController::class, 'logout']);
+            Route::get('/me', [AuthController::class, 'me']);
+            Route::post('/change-password', [AuthController::class, 'changePassword']);
+        });
         
         // Gestión de organizaciones (no requiere Organization-Id)
         Route::apiResource('organizations', OrganizationController::class);

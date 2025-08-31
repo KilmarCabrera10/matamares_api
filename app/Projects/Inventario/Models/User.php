@@ -6,10 +6,12 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
+use Laravel\Sanctum\HasApiTokens;
+use Illuminate\Foundation\Auth\User as Authenticatable;
 
-class User extends Model
+class User extends Authenticatable
 {
-    use HasUuids;
+    use HasUuids, HasApiTokens;
 
     protected $connection = 'inventario';
     protected $table = 'users';
@@ -33,6 +35,14 @@ class User extends Model
     protected $hidden = [
         'password_hash',
     ];
+
+    /**
+     * Obtener el campo de contraseña para autenticación
+     */
+    public function getAuthPassword()
+    {
+        return $this->password_hash;
+    }
 
     /**
      * Obtener las organizaciones del usuario

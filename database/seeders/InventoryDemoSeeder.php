@@ -32,7 +32,7 @@ class InventoryDemoSeeder extends Seeder
         $userId = Str::uuid();
         DB::connection('inventario')->table('users')->insert([
             'id' => $userId,
-            'email' => 'admin@demo.inventario.com',
+            'email' => 'admin@demo.com',
             'password_hash' => bcrypt('password'),
             'first_name' => 'Administrador',
             'last_name' => 'Demo',
