@@ -1,10 +1,10 @@
 <?php
 
-namespace Database\Seeders;
+namespace Database\Matamares\Seeders;
 
 use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
-use App\Models\User;
+use App\Projects\Matamares\Models\User;
 use Illuminate\Support\Facades\Hash;
 
 class UserSeeder extends Seeder

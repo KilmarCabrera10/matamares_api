@@ -1,9 +1,9 @@
 <?php
 
-namespace Database\Seeders;
+namespace Database\Matamares\Seeders;
 
 use Illuminate\Database\Seeder;
-use App\Models\Role;
+use App\Projects\Matamares\Models\Role;
 
 class RoleSeeder extends Seeder
 {
