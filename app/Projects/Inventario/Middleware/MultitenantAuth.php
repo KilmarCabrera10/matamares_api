@@ -39,7 +39,7 @@ class MultitenantAuth
 
         // Verificar que la organización existe y está activa
         $organization = Organization::where('id', $organizationId)
-            ->where('is_active', true)
+            ->where('status', 'active')
             ->first();
 
         if (!$organization) {

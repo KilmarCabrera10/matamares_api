@@ -33,17 +33,14 @@ class CuadreController extends BaseController
         }
 
         return $this->successResponse([
-            'saldo_anterior' => $saldoAnterior,
-            'fecha_ultimo_cuadre' => $ultimoCuadre?->fecha,
-            'ultimo_cuadre_id' => $ultimoCuadre?->id
+            'saldo' => $saldoAnterior,
         ]);
     }
 
     /**
      * Obtener estadísticas de movimientos para un día específico
      */
-    public function estadisticasDia(Request $request): JsonResponse
-    {
+    public function estadisticasDia(Request $request): JsonResponse {
         $organizationId = $request->header('Organization-Id');
         $fecha = $request->get('fecha', now()->format('Y-m-d'));
 
@@ -54,87 +51,165 @@ class CuadreController extends BaseController
             return $this->errorResponse('Formato de fecha inválido. Use YYYY-MM-DD', 400);
         }
 
-        // Aquí deberías adaptar según tu lógica de negocio
-        // Por ejemplo, si tienes movimientos de ventas/compras en otra tabla
+        // Buscar el cuadre para esa fecha
+        $cuadre = Cuadre::where('organization_id', $organizationId)
+            ->where('fecha', $fecha)
+            ->first();
+
+        $ingresos = 0;
+        $gastos = 0;
+
+        if ($cuadre) {
+            // Calcular ingresos totales
+            $ingresos = $cuadre->ingresos_efectivo + 
+                       $cuadre->ingresos_transferencia + 
+                       $cuadre->ingresos_tarjeta;
+
+            // Calcular gastos/egresos totales
+            $gastos = $cuadre->egresos_efectivo + 
+                     $cuadre->egresos_transferencia + 
+                     $cuadre->egresos_tarjeta;
+        }
+
+        // Calcular diferencia
+        $diferencia = $ingresos - $gastos;
+
         $estadisticas = [
-            'fecha' => $fecha,
-            'ingresos' => [
-                'efectivo' => 0,
-                'transferencia' => 0,
-                'tarjeta' => 0,
-                'total' => 0
-            ],
-            'egresos' => [
-                'efectivo' => 0,
-                'transferencia' => 0,
-                'tarjeta' => 0,
-                'total' => 0
-            ],
-            'movimientos_count' => 0
+            'ingresos' => (float) $ingresos,
+            'gastos' => (float) $gastos,
+            'diferencia' => (float) $diferencia
         ];
 
-        // Si tienes una tabla de ventas o movimientos de caja, aquí calcularías las estadísticas reales
-        // Por ahora devolvemos estructura vacía
-        
         return $this->successResponse($estadisticas);
     }
 
     /**
      * Obtener historial de cuadres
      */
-    public function historial(Request $request): JsonResponse
-    {
+    public function historial(Request $request): JsonResponse {
         $organizationId = $request->header('Organization-Id');
-        $limit = $request->get('limit', 10);
+        $limit = $request->get('limit', 3);
 
         $cuadres = Cuadre::where('organization_id', $organizationId)
-            ->with(['creador:id,first_name,last_name', 'cerrador:id,first_name,last_name'])
+            ->with(['creador:id,first_name,last_name'])
             ->orderBy('fecha', 'desc')
             ->limit($limit)
             ->get();
 
-        return $this->successResponse($cuadres);
+        // Transformar los datos al formato esperado por el frontend
+        $historialTransformado = $cuadres->map(function ($cuadre) {
+            return [
+                'id' => $cuadre->id,
+                'fecha' => $cuadre->fecha,
+                'saldoInicial' => (float) $cuadre->saldo_anterior,
+                'efectivoReal' => (float) $cuadre->saldo_fisico,
+                'diferencia' => (float) $cuadre->diferencia,
+                'observaciones' => $cuadre->observaciones ?? '',
+                'usuarioId' => $cuadre->creado_por,
+                'usuario' => $cuadre->creador 
+                    ? trim($cuadre->creador->first_name . ' ' . $cuadre->creador->last_name)
+                    : 'Usuario no disponible',
+                'createdAt' => $cuadre->created_at?->toISOString(),
+                'updatedAt' => $cuadre->updated_at?->toISOString(),
+            ];
+        });
+
+        return $this->successResponse($historialTransformado);
     }
 
     /**
      * Crear un nuevo cuadre
      */
-    public function store(Request $request): JsonResponse
-    {
-
-        dd('--- IGNORE ---');
+    public function store(Request $request): JsonResponse{
         $organizationId = $request->header('Organization-Id');
         
+        // Verificar que el usuario esté autenticado
+        if (!$request->user()) {
+            return $this->errorResponse('Usuario no autenticado', 401);
+        }
+        
         $validated = $request->validate([
-            'fecha' => 'required|date|date_format:Y-m-d',
-            'saldo_anterior' => 'required|numeric|min:0',
-            'ingresos_efectivo' => 'required|numeric|min:0',
-            'ingresos_transferencia' => 'required|numeric|min:0',
-            'ingresos_tarjeta' => 'required|numeric|min:0',
-            'egresos_efectivo' => 'required|numeric|min:0',
-            'egresos_transferencia' => 'required|numeric|min:0',
-            'egresos_tarjeta' => 'required|numeric|min:0',
-            'saldo_fisico' => 'nullable|numeric',
-            'observaciones' => 'nullable|string|max:1000',
+            'fecha'                                    => 'required|date',
+            'cuadre.saldoInicial'                      => 'required|numeric|min:0',
+            'cuadre.observaciones'                     => 'nullable|string|max:1000',
+            'conteoEfectivo.billetes.cien'             => 'numeric|min:0',
+            'conteoEfectivo.billetes.cincuenta'        => 'numeric|min:0',
+            'conteoEfectivo.billetes.veinte'           => 'numeric|min:0',
+            'conteoEfectivo.billetes.diez'             => 'numeric|min:0',
+            'conteoEfectivo.billetes.cinco'            => 'numeric|min:0',
+            'conteoEfectivo.billetes.dos'              => 'numeric|min:0',
+            'conteoEfectivo.billetes.uno'              => 'numeric|min:0',
+            'conteoEfectivo.monedas.dollar'            => 'numeric|min:0',
+            'conteoEfectivo.monedas.cincuentaCentavos' => 'numeric|min:0',
+            'conteoEfectivo.monedas.veinticinco'       => 'numeric|min:0',
+            'conteoEfectivo.monedas.diez'              => 'numeric|min:0',
+            'conteoEfectivo.monedas.cinco'             => 'numeric|min:0',
+            'conteoEfectivo.monedas.uno'               => 'numeric|min:0',
+            'totalEfectivoContado'                     => 'required|numeric|min:0',
         ]);
 
         try {
+            // Convertir fecha ISO a formato Y-m-d
+            $fecha = Carbon::parse($validated['fecha'])->format('Y-m-d');
+            
             // Verificar que no existe un cuadre para esa fecha
             $cuadreExistente = Cuadre::where('organization_id', $organizationId)
-                ->where('fecha', $validated['fecha'])
+                ->where('fecha', $fecha)
                 ->first();
 
             if ($cuadreExistente) {
-                return $this->errorResponse('Ya existe un cuadre para la fecha ' . $validated['fecha'], 400);
+                //return $this->errorResponse('Ya existe un cuadre para la fecha ' . $fecha, 400);
             }
 
-            $validated['organization_id'] = $organizationId;
-            $validated['creado_por'] = $request->user()->id ?? null;
+            // Calcular saldo físico del conteo de efectivo
+            $billetes = $validated['conteoEfectivo']['billetes'];
+            $monedas = $validated['conteoEfectivo']['monedas'];
+            
+            $saldoFisico = 
+                ($billetes['cien']             * 100)  +
+                ($billetes['cincuenta']        * 50)   +
+                ($billetes['veinte']           * 20)   +
+                ($billetes['diez']             * 10)   +
+                ($billetes['cinco']            * 5)    +
+                ($billetes['dos']              * 2)    +
+                ($billetes['uno']              * 1)    +
+                ($monedas['dollar']            * 1)    +
+                ($monedas['cincuentaCentavos'] * 0.50) +
+                ($monedas['veinticinco']       * 0.25) +
+                ($monedas['diez']              * 0.10) +
+                ($monedas['cinco']             * 0.05) +
+                ($monedas['uno']               * 0.01);
 
-            $cuadre = Cuadre::create($validated);
+            // Preparar datos para crear el cuadre
+            $cuadreData = [
+                'organization_id'        => $organizationId,
+                'fecha'                  => $fecha,
+                'saldo_anterior'         => $validated['cuadre']['saldoInicial'],
+                'saldo_fisico'           => $saldoFisico,
+                'observaciones'          => $validated['cuadre']['observaciones'],
+                'creado_por'             => $request->user()->id,
+                // Para MVP, inicializar ingresos y egresos en 0
+                'ingresos_efectivo'      => 0,
+                'ingresos_transferencia' => 0,
+                'ingresos_tarjeta'       => 0,
+                'egresos_efectivo'       => 0,
+                'egresos_transferencia'  => 0,
+                'egresos_tarjeta'        => 0,
+                'cerrado'                => true,
+                'cerrado_por'            => $request->user()->id,
+            ];
+
+            $cuadre = Cuadre::create($cuadreData);
             $cuadre->load(['creador', 'cerrador']);
 
-            return $this->successResponse($cuadre, 'Cuadre creado exitosamente', 201);
+            return $this->successResponse([
+                'cuadre' => $cuadre,
+                'conteo_detalle' => [
+                    'billetes'        => $billetes,
+                    'monedas'         => $monedas,
+                    'total_calculado' => $saldoFisico
+                ]
+            ], 'Cuadre creado exitosamente', 201);
 
         } catch (\Exception $e) {
             return $this->errorResponse('Error al crear el cuadre: ' . $e->getMessage(), 500);

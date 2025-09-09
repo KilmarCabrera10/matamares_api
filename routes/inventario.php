@@ -82,12 +82,12 @@ Route::prefix('inventario')->group(function () {
             // Cuadres de caja
             Route::prefix('cuadres')->group(function () {
                 Route::get('/saldo-anterior', [CuadreController::class, 'saldoAnterior']);
-                Route::get('/historial', [CuadreController::class, 'historial']         );
-                Route::post('/', [CuadreController::class, 'store']                     );
-                Route::get('/validar-fecha', [CuadreController::class, 'validarFecha']  );
-                Route::get('/fecha/{fecha}', [CuadreController::class, 'porFecha']      );
-                Route::put('/{id}', [CuadreController::class, 'update']                 );
-                Route::delete('/{id}', [CuadreController::class, 'destroy']             );
+                Route::get('/historial',      [CuadreController::class, 'historial']    );
+                Route::post('/',              [CuadreController::class, 'store']        );
+                Route::get('/validar-fecha',  [CuadreController::class, 'validarFecha'] );
+                Route::get('/fecha/{fecha}',  [CuadreController::class, 'porFecha']     );
+                Route::put('/{id}',           [CuadreController::class, 'update']       );
+                Route::delete('/{id}',        [CuadreController::class, 'destroy']      );
             });
 
             // Estadísticas de movimientos
